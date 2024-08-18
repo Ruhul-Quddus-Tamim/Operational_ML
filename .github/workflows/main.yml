@@ -1,0 +1,111 @@
+# This workflow is used to implement an automated CI/CD for the MLOps project. 
+# It automates the process of:
+# - Authenticating with Google Cloud using Workload Identity Federation, 
+#   ensuring secure and seamless access to cloud resources without long-term credentials.
+# - Setting up the environment, including Python and Google Cloud SDK.
+# - Caching and installing Python dependencies to speed up the workflow execution.
+# - Starting an MLflow server for tracking machine learning experiments, 
+#   including the results and the latest model generated during the pipeline run.
+# - Downloading the required dataset from Kaggle for processing.
+# - Running correlation analysis and exploratory data analysis (EDA) on the dataset.
+# - Executing a Metaflow pipeline for hyperparameter tuning and training of machine learning models.
+# - Deploying the training and prediction results to GitHub Pages for sharing and review.
+#
+# The MLflow server keeps track of experiments, updates results, and logs the latest model artifacts 
+# for easy access and further deployment.
+#
+# This workflow is triggered on push, pull request to the 'main' branch, or can be manually triggered.
+
+name: CI/CD Pipeline (MLOps)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:  # This enables manual triggering
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        workload_identity_provider: ${{ secrets.WIF }}
+        service_account: ${{ secrets.ACCOUNT }}
+        create_credentials_file: true
+        export_environment_variables: true
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.PROJECT_ID }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v4.0.2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Start MLflow Server
+      run: |
+        nohup mlflow server \
+          --backend-store-uri postgresql+psycopg2://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@${{ secrets.POSTGRES_HOST }}:${{ secrets.POSTGRES_PORT }}/${{ secrets.POSTGRES_DB }} \
+          --default-artifact-root ${{ secrets.MLFLOW_ARTIFACT_ROOT }} \
+          --host 0.0.0.0 \
+          --port 5000 &
+
+    - name: Download Dataset
+      env:
+        KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+        KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      run: python download_dataset.py
+
+    - name: Run Correlation Analysis on dataset
+      run: python analysis/correlation_analysis.py EEG_Brainwave/data/emotions.csv EEG_Brainwave/output
+
+    - name: Run EDA (Exploratory Data Analysis) on dataset
+      run: python analysis/eda.py EEG_Brainwave/data/emotions.csv EEG_Brainwave/output
+
+    - name: Run Metaflow Tuning Flow
+      run: |
+        export PYTHONPATH=$(pwd):$(pwd)/modules && \
+        python metaflow_flows/tuning_flow.py run
+
+    - name: Set RUN_ID for Metaflow Training Flow
+      id: get_run_id
+      run: echo "::set-output name=RUN_ID::$(cat /home/runner/work/Operational_ML/Operational_ML/.metaflow/TuningFlow/latest_run)"
+
+    - name: Run Metaflow Training Flow
+      run: |
+        export PYTHONPATH=$(pwd):$(pwd)/modules && \
+        python metaflow_flows/ml_pipeline_flow.py run --tuning_flow_run_id ${{ steps.get_run_id.outputs.RUN_ID }}
+
+    - name: Deploy training and prediction results to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GH_TOKEN }}
+        publish_dir: ./EEG_Brainwave/output
