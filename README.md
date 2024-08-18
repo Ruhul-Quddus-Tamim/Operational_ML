@@ -16,7 +16,7 @@ There are many benefits to utilize MLflow Tracking Server for remote experiment 
   
 ![arch](assets/arch.png)
 
-# Project Structures:
+# Project Structure:
 ```
 ML_pipeline/
 ├── .github/
@@ -86,6 +86,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO mlflowdata;
 5. **MLFlow UI:** Once the database is setup along with the Google Cloud Storage Bucket, all the models' artifacts will be available in the MLflow UI
 
 <img width="972" alt="Screenshot 2024-08-16 at 4 45 13 PM" src="assets/mlflow_server.png">
+
 
 # Service Account and Workload Identity Federation
 Google Cloud service account is set up for this project and configured with the necessary permissions to allow secure interaction with cloud resources. Workload Identity Federation (WIF) is used to enable GitHub Actions to authenticate with Google Cloud without the need for long-lived service account keys.
