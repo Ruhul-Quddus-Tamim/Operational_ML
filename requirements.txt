@@ -1,0 +1,17 @@
+metaflow
+mlflow
+pandas==1.3.5
+matplotlib==3.5.1
+seaborn==0.11.2
+scikit-learn==1.0.2
+pydantic==1.8.2
+numpy==1.21.4
+tensorflow
+kaggle==1.5.12  # Added for downloading datasets from Kaggle
+google-cloud-storage
+pymysql
+psycopg2
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+protobuf==3.20.*
