@@ -14,7 +14,7 @@ There are many benefits to utilize MLflow Tracking Server for remote experiment 
 - **Centralized Access:** The tracking server can be run as a proxy for the remote access for metadata and artifacts, making it easier to secure and audit access to data.
 
   
-![arch](assets/arch.png)
+![arch](assets/output-onlinepngtools.png)
 
 # Project Structure:
 ```
